@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Tracker</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f4f0; color: #1a1a1a; min-height: 100vh; }
+.tracker { max-width: 800px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+h1 { font-size: 22px; font-weight: 600; color: #1a1a1a; }
+.subtitle { font-size: 13px; color: #888; margin-top: 3px; }
+.header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 12px; }
+.new-btn { padding: 9px 20px; background: #1D9E75; color: #fff; border: none; border-radius: 20px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.new-btn:hover { background: #0f6e56; }
+.stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+.stat { background: #fff; border-radius: 10px; padding: 12px 14px; border: 1px solid #e5e5e0; }
+.stat-label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-val { font-size: 22px; font-weight: 600; margin-top: 3px; }
+.stat-val.green { color: #1D9E75; }
+.stat-val.amber { color: #BA7517; }
+.stat-val.red { color: #A32D2D; }
+.stat-val.blue { color: #185FA5; }
+.stat-val.dark { color: #1a1a1a; }
+.controls { display: flex; gap: 10px; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.tab-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { padding: 7px 14px; border-radius: 20px; border: 1px solid #ddd; font-size: 13px; cursor: pointer; background: #fff; color: #666; }
+.tab.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+.search { padding: 8px 14px; border-radius: 20px; border: 1px solid #ddd; font-size: 13px; background: #fff; color: #1a1a1a; outline: none; width: 210px; }
+.search:focus { border-color: #1D9E75; }
+.job-card { background: #fff; border: 1px solid #e5e5e0; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 10px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+.job-card:hover { border-color: #bbb; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.job-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.job-name { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+.job-addr { font-size: 12px; color: #888; margin-top: 3px; }
+.status-pill { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.s-closed { background: #E1F5EE; color: #0f6e56; }
+.s-follow { background: #FFF3CD; color: #854F0B; }
+.s-lost { background: #FDECEA; color: #A32D2D; }
+.s-new { background: #E3F2FD; color: #185FA5; }
+.job-meta { display: flex; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+.meta-item { font-size: 12px; color: #888; }
+.meta-item strong { color: #333; font-weight: 500; }
+.client-said { margin-top: 8px; font-size: 12px; color: #888; font-style: italic; }
+.overdue { font-size: 11px; background: #FFF3CD; color: #854F0B; padding: 2px 8px; border-radius: 10px; margin-left: 7px; }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.empty { text-align: center; padding: 50px 0; color: #aaa; font-size: 14px; }
+
+/* Modal */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 999; overflow-y: auto; padding: 20px; }
+.overlay.open { display: block; }
+.modal { background: #fff; border-radius: 14px; max-width: 640px; margin: 0 auto; padding: 1.5rem; position: relative; }
+.modal h2 { font-size: 18px; font-weight: 600; margin-bottom: 1.25rem; }
+.close-btn { position: absolute; top: 14px; right: 16px; background: #f0f0ec; border: none; border-radius: 50%; width: 28px; height: 28px; font-size: 16px; cursor: pointer; color: #555; line-height: 28px; text-align: center; }
+.close-btn:hover { background: #e0e0da; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid .full { grid-column: 1 / -1; }
+.sec-title { grid-column: 1 / -1; font-size: 11px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #eee; padding-bottom: 6px; margin-top: 6px; }
+.field label { display: block; font-size: 12px; color: #777; margin-bottom: 5px; }
+.field input, .field select, .field textarea { width: 100%; padding: 9px 11px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; font-family: inherit; background: #fafaf8; color: #1a1a1a; outline: none; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: #1D9E75; box-shadow: 0 0 0 2px rgba(29,158,117,0.12); }
+.field textarea { min-height: 72px; resize: vertical; }
+.upload-zone { grid-column: 1 / -1; border: 1.5px dashed #ccc; border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: border-color 0.15s; }
+.upload-zone:hover { border-color: #1D9E75; }
+.upload-zone p { font-size: 12px; color: #aaa; margin-top: 6px; }
+.upload-zone .icon { font-size: 28px; opacity: 0.35; }
+.img-preview { max-width: 100%; max-height: 200px; border-radius: 8px; display: block; margin: 10px auto 0; }
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1.25rem; border-top: 1px solid #eee; padding-top: 1rem; }
+.btn-cancel { padding: 9px 18px; border-radius: 8px; border: 1px solid #ddd; background: #fff; font-size: 14px; cursor: pointer; color: #555; }
+.btn-cancel:hover { background: #f5f4f0; }
+.btn-save { padding: 9px 22px; border-radius: 8px; background: #1D9E75; color: #fff; border: none; font-size: 14px; font-weight: 500; cursor: pointer; }
+.btn-save:hover { background: #0f6e56; }
+.btn-del { padding: 9px 16px; border-radius: 8px; background: #FDECEA; color: #A32D2D; border: none; font-size: 14px; cursor: pointer; margin-right: auto; }
+.btn-del:hover { background: #f7c1c1; }
+@media (max-width: 540px) {
+  .stats-row { grid-template-columns: repeat(3, 1fr); }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid .full { grid-column: 1; }
+  .sec-title { grid-column: 1; }
+  .upload-zone { grid-column: 1; }
+}
+</style>
+</head>
+<body>
+<div class="tracker">
+  <div class="header">
+    <div>
+      <h1>&#x1F4CB; Job tracker</h1>
+      <div class="subtitle" id="today-label"></div>
+    </div>
+    <button class="new-btn" onclick="openNew()">+ New job</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat"><div class="stat-label">Today</div><div class="stat-val blue" id="s-today">0</div></div>
+    <div class="stat"><div class="stat-label">Closed</div><div class="stat-val green" id="s-closed">0</div></div>
+    <div class="stat"><div class="stat-label">Follow up</div><div class="stat-val amber" id="s-follow">0</div></div>
+    <div class="stat"><div class="stat-label">Lost</div><div class="stat-val red" id="s-lost">0</div></div>
+    <div class="stat"><div class="stat-label">Revenue</div><div class="stat-val green" id="s-rev">$0</div></div>
+  </div>
+
+  <div class="controls">
+    <div class="tab-row">
+      <button class="tab active" onclick="setTab('all',this)">All</button>
+      <button class="tab" onclick="setTab('new',this)">New leads</button>
+      <button class="tab" onclick="setTab('follow',this)">Follow up</button>
+      <button class="tab" onclick="setTab('closed',this)">Closed</button>
+      <button class="tab" onclick="setTab('lost',this)">Lost</button>
+    </div>
+    <input class="search" id="search" type="text" placeholder="Search name or address..." oninput="renderJobs()">
+  </div>
+
+  <div id="job-list"></div>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay" onclick="handleBg(event)">
+  <div class="modal" id="modal">
+    <button class="close-btn" onclick="closeModal()">&#x2715;</button>
+    <h2 id="modal-title">New job</h2>
+    <div class="form-grid">
+      <div class="sec-title">Client information</div>
+      <div class="field"><label>Client name *</label><input id="f-name" type="text" placeholder="Jane Smith"></div>
+      <div class="field"><label>Phone number</label><input id="f-phone" type="tel" placeholder="(555) 000-0000"></div>
+      <div class="field full"><label>Address</label><input id="f-address" type="text" placeholder="123 Main St, City, State, ZIP"></div>
+      <div class="field"><label>Email</label><input id="f-email" type="email" placeholder="jane@email.com"></div>
+      <div class="field"><label>Best time to call</label><input id="f-calltime" type="text" placeholder="Mornings, evenings..."></div>
+
+      <div class="sec-title">Job details</div>
+      <div class="field"><label>Job type</label>
+        <select id="f-type">
+          <option value="">Select type...</option>
+          <option>Roofing</option><option>Siding</option><option>Windows</option>
+          <option>Gutters</option><option>Insulation</option><option>Painting</option>
+          <option>Flooring</option><option>Remodel</option><option>HVAC</option>
+          <option>Electrical</option><option>Plumbing</option><option>Other</option>
+        </select>
+      </div>
+      <div class="field"><label>Visit date</label><input id="f-date" type="date"></div>
+      <div class="field"><label>Estimate given ($)</label><input id="f-estimate" type="number" placeholder="0"></div>
+      <div class="field"><label>Status</label>
+        <select id="f-status">
+          <option value="new">New lead</option>
+          <option value="follow">Follow up needed</option>
+          <option value="closed">Closed / Won</option>
+          <option value="lost">Lost</option>
+        </select>
+      </div>
+      <div class="field"><label>Follow-up date</label><input id="f-followdate" type="date"></div>
+      <div class="field"><label>Priority</label>
+        <select id="f-priority">
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+
+      <div class="sec-title">Quote &amp; notes</div>
+      <div class="field full"><label>What the client said</label><textarea id="f-clientsaid" placeholder="Their reaction, objections, concerns, or interest level..."></textarea></div>
+      <div class="field full"><label>Scope of work / measurements</label><textarea id="f-scope" placeholder="Square footage, materials, dimensions, special requirements..."></textarea></div>
+      <div class="field full"><label>Notes</label><textarea id="f-notes" placeholder="Gate codes, dogs, HOA rules, parking, special access, anything important..."></textarea></div>
+      <div class="field"><label>Competitor mentioned</label><input id="f-competitor" type="text" placeholder="Other bids they're getting?"></div>
+      <div class="field"><label>Referral / lead source</label><input id="f-referral" type="text" placeholder="Google, neighbor, door knock..."></div>
+
+      <div class="sec-title">Estimate photo</div>
+      <div class="upload-zone full" id="upload-zone" onclick="document.getElementById('img-input').click()">
+        <input type="file" id="img-input" accept="image/*" style="display:none" onchange="handleImg(event)">
+        <div id="img-ph"><div class="icon">&#x1F4F7;</div><p>Tap to upload a photo of the estimate sheet</p><p>JPG, PNG, HEIC supported</p></div>
+        <img id="img-prev" class="img-preview" style="display:none">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-del" id="del-btn" style="display:none" onclick="deleteJob()">Delete</button>
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveJob()">Save job</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let jobs = [];
+try { jobs = JSON.parse(localStorage.getItem('salesJobs2') || '[]'); } catch(e) { jobs = []; }
+let editIdx = -1, currentTab = 'all';
+
+function save() { try { localStorage.setItem('salesJobs2', JSON.stringify(jobs)); } catch(e){} }
+
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+function fmt(d) {
+  if (!d) return '';
+  const [y,m,day] = d.split('-');
+  return m+'/'+day+'/'+y.slice(2);
+}
+
+function setTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderJobs();
+}
+
+function updateStats() {
+  const t = todayStr();
+  document.getElementById('s-today').textContent = jobs.filter(j=>j.date===t).length;
+  document.getElementById('s-closed').textContent = jobs.filter(j=>j.status==='closed').length;
+  document.getElementById('s-follow').textContent = jobs.filter(j=>j.status==='follow').length;
+  document.getElementById('s-lost').textContent = jobs.filter(j=>j.status==='lost').length;
+  const rev = jobs.filter(j=>j.status==='closed').reduce((a,j)=>a+(parseFloat(j.estimate)||0),0);
+  document.getElementById('s-rev').textContent = '$'+rev.toLocaleString('en-US',{maximumFractionDigits:0});
+}
+
+function renderJobs() {
+  const q = (document.getElementById('search').value||'').toLowerCase();
+  let list = jobs.filter((j,i)=>{
+    const ok = currentTab==='all'||j.status===currentTab;
+    const mq = !q||(j.name||'').toLowerCase().includes(q)||(j.address||'').toLowerCase().includes(q)||(j.type||'').toLowerCase().includes(q);
+    return ok && mq;
+  });
+
+  const el = document.getElementById('job-list');
+  if (!list.length) { el.innerHTML='<div class="empty">No jobs here yet</div>'; return; }
+
+  const pc = {high:'#E24B4A',medium:'#BA7517',low:'#639922'};
+  const sl = {new:'New lead',follow:'Follow up',closed:'Closed ✓',lost:'Lost'};
+  const sc = {new:'s-new',follow:'s-follow',closed:'s-closed',lost:'s-lost'};
+  const t = todayStr();
+
+  el.innerHTML = list.map(j=>{
+    const ri = jobs.indexOf(j);
+    const overdue = j.status==='follow' && j.followdate && j.followdate < t;
+    return `<div class="job-card" onclick="editJob(${ri})">
+      <div class="job-card-top">
+        <div>
+          <div class="job-name">
+            <span class="dot" style="background:${pc[j.priority||'medium']}"></span>${j.name||'Unnamed client'}
+            ${overdue?'<span class="overdue">Overdue follow-up</span>':''}
+          </div>
+          <div class="job-addr">${j.address||'No address on file'}</div>
+        </div>
+        <span class="status-pill ${sc[j.status]||'s-new'}">${sl[j.status]||'New'}</span>
+      </div>
+      <div class="job-meta">
+        ${j.type?`<div class="meta-item">Type: <strong>${j.type}</strong></div>`:''}
+        ${j.estimate?`<div class="meta-item">Estimate: <strong>$${parseFloat(j.estimate).toLocaleString()}</strong></div>`:''}
+        ${j.date?`<div class="meta-item">Visited: <strong>${fmt(j.date)}</strong></div>`:''}
+        ${j.followdate?`<div class="meta-item">Follow up: <strong>${fmt(j.followdate)}</strong></div>`:''}
+        ${j.phone?`<div class="meta-item">Phone: <strong>${j.phone}</strong></div>`:''}
+      </div>
+      ${j.clientsaid?`<div class="client-said">"${j.clientsaid.slice(0,130)}${j.clientsaid.length>130?'...':''}"</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function openNew() {
+  editIdx = -1;
+  document.getElementById('modal-title').textContent = 'New job';
+  document.getElementById('del-btn').style.display = 'none';
+  ['name','phone','address','email','calltime','estimate','notes','scope','clientsaid','competitor','referral'].forEach(f=>document.getElementById('f-'+f).value='');
+  document.getElementById('f-type').value = '';
+  document.getElementById('f-status').value = 'new';
+  document.getElementById('f-priority').value = 'medium';
+  document.getElementById('f-date').value = todayStr();
+  document.getElementById('f-followdate').value = '';
+  document.getElementById('img-prev').style.display = 'none';
+  document.getElementById('img-prev').src = '';
+  document.getElementById('img-ph').style.display = 'block';
+  document.getElementById('overlay').classList.add('open');
+}
+
+function editJob(i) {
+  editIdx = i;
+  const j = jobs[i];
+  document.getElementById('modal-title').textContent = 'Edit job';
+  document.getElementById('del-btn').style.display = 'block';
+  document.getElementById('f-name').value = j.name||'';
+  document.getElementById('f-phone').value = j.phone||'';
+  document.getElementById('f-address').value = j.address||'';
+  document.getElementById('f-email').value = j.email||'';
+  document.getElementById('f-calltime').value = j.calltime||'';
+  document.getElementById('f-type').value = j.type||'';
+  document.getElementById('f-status').value = j.status||'new';
+  document.getElementById('f-date').value = j.date||'';
+  document.getElementById('f-estimate').value = j.estimate||'';
+  document.getElementById('f-followdate').value = j.followdate||'';
+  document.getElementById('f-priority').value = j.priority||'medium';
+  document.getElementById('f-clientsaid').value = j.clientsaid||'';
+  document.getElementById('f-scope').value = j.scope||'';
+  document.getElementById('f-notes').value = j.notes||'';
+  document.getElementById('f-competitor').value = j.competitor||'';
+  document.getElementById('f-referral').value = j.referral||'';
+  if (j.img) {
+    document.getElementById('img-prev').src = j.img;
+    document.getElementById('img-prev').style.display = 'block';
+    document.getElementById('img-ph').style.display = 'none';
+  } else {
+    document.getElementById('img-prev').style.display = 'none';
+    document.getElementById('img-ph').style.display = 'block';
+  }
+  document.getElementById('overlay').classList.add('open');
+}
+
+function saveJob() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { document.getElementById('f-name').focus(); document.getElementById('f-name').style.borderColor='#E24B4A'; return; }
+  const job = {
+    name, phone: document.getElementById('f-phone').value,
+    address: document.getElementById('f-address').value,
+    email: document.getElementById('f-email').value,
+    calltime: document.getElementById('f-calltime').value,
+    type: document.getElementById('f-type').value,
+    status: document.getElementById('f-status').value,
+    date: document.getElementById('f-date').value,
+    estimate: document.getElementById('f-estimate').value,
+    followdate: document.getElementById('f-followdate').value,
+    priority: document.getElementById('f-priority').value,
+    clientsaid: document.getElementById('f-clientsaid').value,
+    scope: document.getElementById('f-scope').value,
+    notes: document.getElementById('f-notes').value,
+    competitor: document.getElementById('f-competitor').value,
+    referral: document.getElementById('f-referral').value,
+    img: document.getElementById('img-prev').src || ''
+  };
+  if (editIdx >= 0) { jobs[editIdx] = job; } else { jobs.unshift(job); }
+  save(); updateStats(); renderJobs(); closeModal();
+}
+
+function deleteJob() {
+  if (!confirm('Delete this job? This cannot be undone.')) return;
+  jobs.splice(editIdx, 1);
+  save(); updateStats(); renderJobs(); closeModal();
+}
+
+function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+function handleBg(e) { if (e.target === document.getElementById('overlay')) closeModal(); }
+
+function handleImg(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    document.getElementById('img-prev').src = ev.target.result;
+    document.getElementById('img-prev').style.display = 'block';
+    document.getElementById('img-ph').style.display = 'none';
+  };
+  r.readAsDataURL(file);
+}
+
+document.getElementById('today-label').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+updateStats();
+renderJobs();
+</script>
+</body>
+</html>
