@@ -1,45 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProTrack — Job Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--green:#00C875;--green-d:#00a35e;--green-bg:#e6fff4;--amber:#FF9500;--amber-bg:#fff4e0;--red:#FF3B30;--red-bg:#fff0ee;--blue:#007AFF;--blue-bg:#e8f2ff;--purple:#AF52DE;--purple-bg:#f5eeff;--bg:#F2F1ED;--card:#fff;--border:#e5e4de;--text:#1a1917;--muted:#888480;--radius:14px;--radius-sm:8px;--font:'DM Sans',sans-serif;--mono:'DM Mono',monospace;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh;}
+.sidebar{background:#1a1917;color:#f5f4f0;position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;}
+.main{padding:24px 20px;overflow-y:auto;}
+.brand{padding:20px 16px 14px;border-bottom:1px solid #2e2c29;}
+.brand h1{font-size:16px;font-weight:600;color:#fff;letter-spacing:-.3px;}
+.brand p{font-size:10px;color:#555;margin-top:2px;font-family:var(--mono);}
+.sync-indicator{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:#555;margin-top:4px;font-family:var(--mono);}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:#555;}
+.sync-dot.live{background:var(--green);}
+.nav-section{padding:14px 10px 8px;}
+.nav-label{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.08em;font-weight:500;padding:0 8px;margin-bottom:5px;}
+.nav-btn{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px;color:#aaa;border:none;background:none;width:100%;text-align:left;transition:all .15s;font-family:var(--font);}
+.nav-btn:hover{background:#252320;color:#fff;}
+.nav-btn.active{background:#2e2c29;color:#fff;}
+.nav-btn .icon{width:16px;text-align:center;font-size:13px;}
+.nav-btn .badge{margin-left:auto;border-radius:10px;font-size:10px;padding:1px 7px;font-weight:600;}
+.badge-red{background:var(--red);color:#fff;}
+.badge-green{background:var(--green-d);color:#fff;}
+.sidebar-bottom{margin-top:auto;padding:14px 10px;border-top:1px solid #2e2c29;}
+.add-btn-main{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);transition:background .15s;}
+.add-btn-main:hover{background:var(--green-d);}
+.urgency-banner{border-radius:var(--radius);padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:14px;}
+.urgency-banner.hot-banner{background:linear-gradient(135deg,#FF3B30,#FF6B35);color:#fff;}
+.urgency-banner.warm-banner{background:linear-gradient(135deg,#FF9500,#FFB340);color:#fff;}
+.urgency-banner.hidden{display:none;}
+.urgency-banner h2{font-size:14px;font-weight:600;}
+.urgency-banner p{font-size:12px;opacity:.85;margin-top:2px;}
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px;}
+.stat-card{background:var(--card);border-radius:var(--radius);padding:12px 14px;border:1px solid var(--border);}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:500;}
+.stat-val{font-size:24px;font-weight:600;margin-top:3px;letter-spacing:-1px;}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:1px;}
+.c-green{color:var(--green-d);}.c-red{color:var(--red);}.c-amber{color:var(--amber);}.c-blue{color:var(--blue);}
+.rate-bar-wrap{background:var(--bg);border-radius:100px;height:5px;margin-top:5px;overflow:hidden;}
+.rate-bar{height:100%;border-radius:100px;transition:width .6s;}
+.queue-section{margin-bottom:24px;}
+.queue-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;}
+.queue-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;}
+.queue-card{background:var(--card);border-radius:var(--radius);border:1.5px solid var(--border);padding:12px 14px;min-width:200px;max-width:200px;flex-shrink:0;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;}
+.queue-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.09);}
+.queue-card.hot{border-color:var(--red);}.queue-card.warm{border-color:var(--amber);}.queue-card.cold{border-color:var(--blue);}
+.heat-bar{position:absolute;top:0;left:0;right:0;height:3px;}
+.heat-bar.hot{background:var(--red);}.heat-bar.warm{background:var(--amber);}.heat-bar.cold{background:var(--blue);}
+.heat-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px;}
+.heat-badge.hot{background:var(--red-bg);color:var(--red);}.heat-badge.warm{background:var(--amber-bg);color:var(--amber);}.heat-badge.cold{background:var(--blue-bg);color:var(--blue);}
+.queue-name{font-size:13px;font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.queue-type{font-size:11px;color:var(--muted);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.queue-est{font-size:15px;font-weight:600;color:var(--green-d);}
+.queue-days{font-size:10px;color:var(--muted);margin-top:2px;}
+.q-call-btn{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;margin-top:8px;padding:6px;background:var(--green-bg);color:var(--green-d);border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font);}
+.q-call-btn:hover{background:var(--green);color:#fff;}
+.q-script-btn{display:flex;align-items:center;justify-content:center;width:100%;margin-top:4px;padding:5px;background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:7px;font-size:11px;cursor:pointer;font-family:var(--font);}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;}
+.section-header h2{font-size:15px;font-weight:600;}
+.search-bar{padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:var(--card);font-size:13px;color:var(--text);outline:none;width:190px;font-family:var(--font);}
+.search-bar:focus{border-color:var(--green);}
+.job-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:14px 16px;margin-bottom:9px;cursor:pointer;transition:all .15s;border-left:3px solid transparent;}
+.job-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.06);border-color:#c5c3be;}
+.job-card.hot-card{border-left-color:var(--red);}.job-card.warm-card{border-left-color:var(--amber);}.job-card.closed-card{border-left-color:var(--green);}
+.job-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.job-name{font-size:14px;font-weight:600;}
+.job-addr{font-size:11px;color:var(--muted);margin-top:2px;}
+.pill{padding:3px 9px;border-radius:9px;font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;}
+.p-hot{background:var(--red-bg);color:var(--red);}.p-warm{background:var(--amber-bg);color:var(--amber);}.p-cold{background:var(--blue-bg);color:var(--blue);}.p-closed{background:var(--green-bg);color:var(--green-d);}.p-lost{background:#f0efea;color:var(--muted);}.p-new{background:var(--blue-bg);color:var(--blue);}
+.job-meta{display:flex;gap:12px;margin-top:9px;flex-wrap:wrap;}
+.meta{font-size:11px;color:var(--muted);}
+.meta strong{color:var(--text);font-weight:500;}
+.tags-row{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap;}
+.tag{font-size:10px;padding:2px 8px;border-radius:8px;background:var(--bg);color:var(--muted);border:1px solid var(--border);}
+.client-said{font-size:11px;color:var(--muted);font-style:italic;margin-top:7px;border-left:2px solid var(--border);padding-left:8px;}
+.overdue-tag{font-size:9px;background:var(--red);color:#fff;padding:2px 6px;border-radius:6px;margin-left:5px;font-weight:600;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.ref-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:14px 16px;margin-bottom:9px;display:flex;align-items:center;gap:12px;}
+.ref-avatar{width:42px;height:42px;border-radius:50%;background:var(--purple-bg);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:var(--purple);flex-shrink:0;}
+.ref-info{flex:1;min-width:0;}
+.ref-name{font-size:14px;font-weight:600;}
+.ref-detail{font-size:11px;color:var(--muted);margin-top:2px;}
+.ref-stars{color:var(--amber);font-size:12px;margin-top:3px;}
+.ref-note{font-size:11px;color:var(--muted);font-style:italic;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ref-actions{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;}
+.ref-btn{padding:6px 12px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font);border:none;}
+.ref-call{background:var(--green-bg);color:var(--green-d);}
+.ref-copy{background:var(--bg);color:var(--muted);border:1px solid var(--border)!important;}
+.ref-edit{background:var(--bg);color:var(--muted);border:1px solid var(--border)!important;}
+.empty{text-align:center;padding:50px 0;color:var(--muted);font-size:13px;}
+.empty .icon{font-size:32px;margin-bottom:10px;opacity:.35;}
+.view{display:none;}.view.active{display:block;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;overflow-y:auto;padding:20px;backdrop-filter:blur(3px);}
+.overlay.open{display:flex;align-items:flex-start;justify-content:center;}
+.modal{background:var(--card);border-radius:18px;width:100%;max-width:640px;position:relative;margin:auto;overflow:hidden;}
+.modal-header{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-header h2{font-size:16px;font-weight:600;}
+.modal-body{padding:18px 22px;max-height:72vh;overflow-y:auto;}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
+.close-x{background:var(--bg);border:none;border-radius:50%;width:28px;height:28px;font-size:15px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;}
+.close-x:hover{background:var(--border);}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.full{grid-column:1/-1;}
+.sec{grid-column:1/-1;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);padding-bottom:5px;margin-top:6px;}
+.field label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:500;}
+.field input,.field select,.field textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:var(--font);background:var(--bg);color:var(--text);outline:none;transition:border-color .15s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green);background:#fff;box-shadow:0 0 0 2px rgba(0,200,117,.1);}
+.field textarea{min-height:68px;resize:vertical;}
+.quick-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;}
+.qt{padding:5px 11px;border-radius:18px;border:1px solid var(--border);font-size:11px;cursor:pointer;background:var(--bg);color:var(--muted);transition:all .15s;font-family:var(--font);}
+.qt:hover,.qt.selected{background:var(--text);color:#fff;border-color:var(--text);}
+.upload-zone{border:1.5px dashed var(--border);border-radius:var(--radius-sm);padding:18px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg);}
+.upload-zone:hover{border-color:var(--green);background:var(--green-bg);}
+.upload-zone p{font-size:11px;color:var(--muted);margin-top:5px;}
+.img-preview-el{max-width:100%;max-height:180px;border-radius:var(--radius-sm);display:block;margin:8px auto 0;}
+.btn-cancel{padding:8px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);font-size:13px;cursor:pointer;color:var(--muted);font-family:var(--font);}
+.btn-save{padding:8px 22px;border-radius:var(--radius-sm);background:var(--green);color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);}
+.btn-save:hover{background:var(--green-d);}
+.btn-del{padding:8px 14px;border-radius:var(--radius-sm);background:var(--red-bg);color:var(--red);border:none;font-size:13px;cursor:pointer;margin-right:auto;font-family:var(--font);}
+.script-box{background:var(--bg);border-radius:var(--radius-sm);padding:14px;font-size:13px;line-height:1.7;border-left:3px solid var(--green);margin-bottom:10px;white-space:pre-wrap;}
+.copy-script{padding:8px 18px;border-radius:var(--radius-sm);background:var(--green);color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);}
+.insight-bar-wrap{display:flex;align-items:center;gap:10px;margin-bottom:7px;}
+.insight-label{font-size:12px;width:160px;flex-shrink:0;}
+.insight-track{flex:1;background:var(--border);border-radius:100px;height:6px;overflow:hidden;}
+.insight-fill{height:100%;border-radius:100px;}
+.insight-count{font-size:11px;color:var(--muted);width:28px;text-align:right;}
+.loading-screen{position:fixed;inset:0;background:#1a1917;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s;}
+.loading-screen.gone{opacity:0;pointer-events:none;}
+.spinner{width:34px;height:34px;border:3px solid #333;border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-screen h2{color:#fff;font-size:17px;font-weight:600;margin-top:14px;}
+.loading-screen p{color:#555;font-size:12px;margin-top:5px;font-family:var(--mono);}
+.toast{position:fixed;bottom:20px;right:20px;background:#1a1917;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:500;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;}
+.toast.show{opacity:1;}
+@media(max-width:680px){
+  .app{grid-template-columns:1fr;}
+  .sidebar{position:fixed;bottom:0;left:0;right:0;height:auto;flex-direction:row;z-index:100;overflow-x:auto;overflow-y:hidden;}
+  .brand,.sidebar-bottom,.nav-label{display:none;}
+  .nav-section{display:flex;padding:6px;gap:2px;}
+  .nav-btn{flex-direction:column;gap:2px;font-size:9px;padding:6px 8px;min-width:52px;}
+  .nav-btn .badge{display:none;}
+  .main{padding:14px 12px 72px;}
+  .stats-grid{grid-template-columns:repeat(3,1fr);}
+  .form-grid{grid-template-columns:1fr;}
+  .full,.sec{grid-column:1;}
+}
+</style>
+</head>
+<body>
 
-Loading ProTrack...
-connecting to database
-⚡ ProTrack
+<div class="loading-screen" id="loading">
+  <div class="spinner"></div>
+  <h2>Loading ProTrack...</h2>
+  <p>connecting to database</p>
+</div>
 
-connecting...
+<div class="app">
+<div class="sidebar">
+  <div class="brand">
+    <h1>⚡ ProTrack</h1>
+    <div class="sync-indicator"><span class="sync-dot" id="sync-dot"></span><span id="sync-label">connecting...</span></div>
+    <p id="sidebar-date"></p>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Menu</div>
+    <button class="nav-btn active" onclick="showView('dashboard',this)"><span class="icon">📊</span> Dashboard</button>
+    <button class="nav-btn" onclick="showView('followup',this)"><span class="icon">🔥</span> Follow Up <span class="badge badge-red" id="fu-badge">0</span></button>
+    <button class="nav-btn" onclick="showView('alljobs',this)"><span class="icon">📋</span> All Jobs</button>
+    <button class="nav-btn" onclick="showView('closed',this)"><span class="icon">✅</span> Closed <span class="badge badge-green" id="closed-badge">0</span></button>
+    <button class="nav-btn" onclick="showView('lost',this)"><span class="icon">❌</span> Lost</button>
+    <button class="nav-btn" onclick="showView('referrals',this)"><span class="icon">⭐</span> Referrals</button>
+    <button class="nav-btn" onclick="showView('insights',this)"><span class="icon">📈</span> Insights</button>
+  </div>
+  <div class="sidebar-bottom">
+    <button class="add-btn-main" onclick="openNewJob()">+ New Job</button>
+  </div>
+</div>
 
-MENU
-📊
-Dashboard
-🔥
-Follow Up
-0
-📋
-All Jobs
-✅
-Closed
-0
-❌
-Lost
-⭐
-Referrals
-📈
-Insights
-+ New Job
-TODAY
-0
-visits
-FOLLOW UP
-0
-need calls
-CLOSED
-0
-total
-REVENUE
-$0
-closed
-CLOSE RATE
-0%
+<div class="main">
 
-🔥 TODAY'S CALL QUEUE — SORTED BY URGENCY
-Recent jobs
+<div class="view active" id="view-dashboard">
+  <div id="urgency-banner" class="urgency-banner hidden">
+    <div style="font-size:26px">🔥</div>
+    <div><h2 id="urgency-title"></h2><p id="urgency-sub"></p></div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Today</div><div class="stat-val c-blue" id="s-today">0</div><div class="stat-sub">visits</div></div>
+    <div class="stat-card"><div class="stat-label">Follow Up</div><div class="stat-val c-red" id="s-follow">0</div><div class="stat-sub">need calls</div></div>
+    <div class="stat-card"><div class="stat-label">Closed</div><div class="stat-val c-green" id="s-closed">0</div><div class="stat-sub">total</div></div>
+    <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-val c-green" id="s-rev">$0</div><div class="stat-sub">closed</div></div>
+    <div class="stat-card"><div class="stat-label">Close Rate</div><div class="stat-val" id="s-rate">0%</div><div class="rate-bar-wrap"><div class="rate-bar" id="rate-bar" style="width:0%"></div></div></div>
+  </div>
+  <div class="queue-section">
+    <div class="queue-title">🔥 Today's call queue — sorted by urgency</div>
+    <div class="queue-scroll" id="queue-cards"></div>
+  </div>
+  <div class="section-header">
+    <h2>Recent jobs</h2>
+    <input class="search-bar" type="text" id="dash-search" placeholder="Search..." oninput="renderDash()">
+  </div>
+  <div id="dash-list"></div>
+</div>
 
+<div class="view" id="view-followup">
+  <div class="section-header"><h2>🔥 Follow Up Queue</h2><input class="search-bar" type="text" id="fu-search" placeholder="Search..." oninput="renderFollowup()"></div>
+  <div id="fu-list"></div>
+</div>
 
+<div class="view" id="view-alljobs">
+  <div class="section-header"><h2>All Jobs</h2><input class="search-bar" type="text" id="all-search" placeholder="Search..." oninput="renderAll()"></div>
+  <div id="all-list"></div>
+</div>
 
+<div class="view" id="view-closed">
+  <div class="section-header"><h2>✅ Closed Jobs</h2></div>
+  <div id="closed-list"></div>
+</div>
+
+<div class="view" id="view-lost">
+  <div class="section-header"><h2>❌ Lost Jobs</h2></div>
+  <div id="lost-list"></div>
+</div>
+
+<div class="view" id="view-referrals">
+  <div class="section-header">
+    <h2>⭐ Referral Clients</h2>
+    <button class="add-btn-main" style="width:auto;padding:8px 16px;font-size:12px" onclick="openNewRef()">+ Add Referral</button>
+  </div>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Your best clients — share their info with new prospects instantly.</p>
+  <div id="ref-list"></div>
+</div>
+
+<div class="view" id="view-insights">
+  <div class="section-header"><h2>📈 Insights</h2></div>
+  <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="stat-card"><div class="stat-label">Total Jobs</div><div class="stat-val" id="i-total">0</div></div>
+    <div class="stat-card"><div class="stat-label">Total Est. Value</div><div class="stat-val c-blue" id="i-value">$0</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Estimate</div><div class="stat-val" id="i-avg">$0</div></div>
+    <div class="stat-card"><div class="stat-label">Closed Value</div><div class="stat-val c-green" id="i-closed-val">$0</div></div>
+    <div class="stat-card"><div class="stat-label">Lost Value</div><div class="stat-val c-red" id="i-lost-val">$0</div></div>
+    <div class="stat-card"><div class="stat-label">Pending Value</div><div class="stat-val c-amber" id="i-pend-val">$0</div></div>
+  </div>
+  <h3 style="font-size:13px;font-weight:600;margin:18px 0 10px">Why jobs are lost</h3>
+  <div id="lost-reasons"></div>
+  <h3 style="font-size:13px;font-weight:600;margin:18px 0 10px">Jobs by type</h3>
+  <div id="jobs-by-type"></div>
+</div>
+
+</div>
+</div>
+
+<!-- JOB MODAL -->
+<div class="overlay" id="job-overlay" onclick="handleBg(event,'job-overlay')">
+<div class="modal">
+  <div class="modal-header">
+    <h2 id="job-modal-title">New Job</h2>
+    <button class="close-x" onclick="closeJobModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="form-grid">
+      <div class="sec full">Client Info</div>
+      <div class="field"><label>Client name *</label><input id="f-name" type="text" placeholder="Jane Smith"></div>
+      <div class="field"><label>Phone *</label><input id="f-phone" type="tel" placeholder="(555) 000-0000"></div>
+      <div class="field full"><label>Address</label><input id="f-address" type="text" placeholder="123 Main St, City, State, ZIP"></div>
+      <div class="field"><label>Email</label><input id="f-email" type="email" placeholder="jane@email.com"></div>
+      <div class="field"><label>Best time to call</label><input id="f-calltime" type="text" placeholder="Evenings after 5pm..."></div>
+      <div class="sec full">Job Details</div>
+      <div class="field"><label>Job type</label>
+        <select id="f-type">
+          <option value="">Select type...</option>
+          <optgroup label="Fencing">
+            <option>Wood fence</option><option>Vinyl fence</option><option>Chain link fence</option>
+            <option>Aluminum fence</option><option>Wrought iron fence</option><option>Block wall</option>
+          </optgroup>
+          <optgroup label="Gates">
+            <option>Wood gate</option><option>Aluminum gate</option><option>Automatic gate</option>
+            <option>Wrought iron gate</option><option>Vinyl gate</option>
+          </optgroup>
+          <optgroup label="Patio & Outdoor">
+            <option>Alumawood patio cover</option><option>Solid patio cover</option><option>Pergola</option>
+            <option>Gazebo</option><option>Lattice cover</option>
+          </optgroup>
+          <optgroup label="Concrete & Pavers">
+            <option>Concrete</option><option>Pavers</option><option>Stamped concrete</option><option>Retaining wall</option>
+          </optgroup>
+          <optgroup label="Landscaping">
+            <option>Artificial turf</option><option>Sod</option><option>Full landscaping</option>
+            <option>Drainage</option><option>Irrigation</option><option>Cleanup</option>
+          </optgroup>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field"><label>Visit date</label><input id="f-date" type="date"></div>
+      <div class="field"><label>Estimate given ($)</label><input id="f-estimate" type="number" placeholder="0"></div>
+      <div class="field"><label>Status / Heat level</label>
+        <select id="f-status">
+          <option value="new">🆕 New lead</option>
+          <option value="hot">🔥 Hot — call ASAP</option>
+          <option value="warm">🌡️ Warm — follow up soon</option>
+          <option value="cold">🧊 Cold — check in later</option>
+          <option value="closed">✅ Closed / Won</option>
+          <option value="lost">❌ Lost</option>
+        </select>
+      </div>
+      <div class="field"><label>Follow-up date</label><input id="f-followdate" type="date"></div>
+      <div class="field"><label>Competitor mentioned</label><input id="f-competitor" type="text" placeholder="Who else is bidding?"></div>
+      <div class="field"><label>Lead source</label><input id="f-referral-src" type="text" placeholder="Google, neighbor, door knock..."></div>
+      <div class="field full" id="lost-reason-field" style="display:none"><label>Why lost?</label>
+        <select id="f-lost-reason">
+          <option value="">Select reason...</option>
+          <option>Price too high</option><option>Went with competitor</option><option>No response</option>
+          <option>Project cancelled</option><option>Not ready yet</option><option>Out of area</option><option>Other</option>
+        </select>
+      </div>
+      <div class="sec full">Client Reaction</div>
+      <div class="field full">
+        <label>Quick tap what they said</label>
+        <div class="quick-tags">
+          <button class="qt" data-val="Ready to go!">✅ Ready to go</button>
+          <button class="qt" data-val="Thinking about it">🤔 Thinking about it</button>
+          <button class="qt" data-val="Price too high">💰 Too expensive</button>
+          <button class="qt" data-val="Getting other quotes">📋 Getting other quotes</button>
+          <button class="qt" data-val="No answer">📵 No answer</button>
+          <button class="qt" data-val="Left voicemail">📬 Left voicemail</button>
+          <button class="qt" data-val="Very interested!">🔥 Very interested</button>
+          <button class="qt" data-val="Needs spouse approval">👫 Needs spouse approval</button>
+          <button class="qt" data-val="Waiting on HOA">🏘️ Waiting on HOA</button>
+          <button class="qt" data-val="Called back">📞 Called back</button>
+          <button class="qt" data-val="Wants to negotiate price">💬 Wants to negotiate</button>
+          <button class="qt" data-val="Asked about financing">💳 Asked about financing</button>
+        </div>
+      </div>
+      <div class="field full"><label>Extra notes on what they said</label><textarea id="f-clientsaid" placeholder="Any extra context..."></textarea></div>
+      <div class="field full"><label>Scope / measurements</label><textarea id="f-scope" placeholder="Linear feet, sq footage, materials, colors..."></textarea></div>
+      <div class="field full"><label>Job notes</label><textarea id="f-notes" placeholder="Gate codes, dogs, HOA, access info, special requests..."></textarea></div>
+      <div class="sec full">Estimate Photo</div>
+      <div class="upload-zone full" onclick="document.getElementById('img-input').click()">
+        <input type="file" id="img-input" accept="image/*" style="display:none" onchange="handleImg(event)">
+        <div id="img-ph"><div style="font-size:24px;opacity:.3">📸</div><p>Tap to upload photo of estimate sheet</p></div>
+        <img id="img-prev" class="img-preview-el" style="display:none">
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-del" id="del-btn" style="display:none" onclick="deleteJob()">Delete</button>
+    <button class="btn-cancel" onclick="closeJobModal()">Cancel</button>
+    <button class="btn-save" id="save-job-btn" onclick="saveJob()">Save Job</button>
+  </div>
+</div>
+</div>
+
+<!-- REFERRAL MODAL -->
+<div class="overlay" id="ref-overlay" onclick="handleBg(event,'ref-overlay')">
+<div class="modal">
+  <div class="modal-header">
+    <h2 id="ref-modal-title">Add Referral</h2>
+    <button class="close-x" onclick="closeRefModal()">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="form-grid">
+      <div class="field"><label>Client name *</label><input id="r-name" type="text" placeholder="Maria Garcia"></div>
+      <div class="field"><label>Phone</label><input id="r-phone" type="tel" placeholder="(555) 000-0000"></div>
+      <div class="field full"><label>Address / neighborhood</label><input id="r-address" type="text" placeholder="Where job was done"></div>
+      <div class="field"><label>Job done</label><input id="r-type" type="text" placeholder="Wood fence, patio cover..."></div>
+      <div class="field"><label>Rating</label>
+        <select id="r-stars">
+          <option value="5">⭐⭐⭐⭐⭐ 5 stars</option>
+          <option value="4">⭐⭐⭐⭐ 4 stars</option>
+          <option value="3">⭐⭐⭐ 3 stars</option>
+        </select>
+      </div>
+      <div class="field full"><label>What they'd say about us</label><textarea id="r-note" placeholder="Amazing work, best price, very professional..."></textarea></div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-del" id="ref-del-btn" style="display:none" onclick="deleteRef()">Remove</button>
+    <button class="btn-cancel" onclick="closeRefModal()">Cancel</button>
+    <button class="btn-save" onclick="saveRef()">Save Referral</button>
+  </div>
+</div>
+</div>
+
+<!-- SCRIPT MODAL -->
+<div class="overlay" id="script-overlay" onclick="handleBg(event,'script-overlay')">
+<div class="modal">
+  <div class="modal-header">
+    <h2>📞 Follow-up Script</h2>
+    <button class="close-x" onclick="document.getElementById('script-overlay').classList.remove('open')">✕</button>
+  </div>
+  <div class="modal-body">
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Suggested script based on what this client said:</p>
+    <div class="script-box" id="script-text"></div>
+    <button class="copy-script" onclick="copyScript()">Copy script</button>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://kyhgxaechiwbdjtsgirk.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5aGd4YWVjaGl3YmRqdHNnaXJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzOTI3NDQsImV4cCI6MjA5MTk2ODc0NH0.nz0yZcepgXcKfqnPWUkbCsWK3EDLqVIvrKIYfz63Kfk';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let jobs = [], refs = [], editJobId = null, editRefId = null, selectedQtVals = [];
+
+function toast(m) {
+  const t = document.getElementById('toast');
+  t.textContent = m; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+function fmt(d) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return m + '/' + day + '/' + y.slice(2);
+}
+
+function daysSince(d) {
+  if (!d) return 0;
+  return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+}
+
+function heatLevel(j) {
+  if (['hot','warm','cold','closed','lost'].includes(j.status)) return j.status;
+  return daysSince(j.visit_date) <= 2 ? 'warm' : 'cold';
+}
+
+function pillInfo(j) {
+  const h = heatLevel(j);
+  const map = {
+    hot: ['p-hot','🔥 Hot'], warm: ['p-warm','🌡️ Warm'], cold: ['p-cold','🧊 Cold'],
+    closed: ['p-closed','✅ Closed'], lost: ['p-lost','❌ Lost'], new: ['p-new','🆕 New']
+  };
+  return map[h] || map.new;
+}
+
+async function loadAll() {
+  const [jobsRes, refsRes] = await Promise.all([
+    sb.from('jobs').select('*').order('created_at', { ascending: false }),
+    sb.from('referrals').select('*').order('created_at', { ascending: false })
+  ]);
+  if (jobsRes.data) jobs = jobsRes.data;
+  if (refsRes.data) refs = refsRes.data;
+  document.getElementById('sync-dot').classList.add('live');
+  document.getElementById('sync-label').textContent = 'live sync';
+  document.getElementById('loading').classList.add('gone');
+  updateStats();
+  renderDash();
+}
+
+// Real-time sync
+sb.channel('jobs-channel')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, async () => {
+    const { data } = await sb.from('jobs').select('*').order('created_at', { ascending: false });
+    if (data) { jobs = data; updateStats(); rerenderCurrentView(); }
+  })
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'referrals' }, async () => {
+    const { data } = await sb.from('referrals').select('*').order('created_at', { ascending: false });
+    if (data) { refs = data; renderRefs(); }
+  })
+  .subscribe();
+
+function rerenderCurrentView() {
+  const active = document.querySelector('.view.active');
+  if (!active) return;
+  const id = active.id.replace('view-', '');
+  const map = { dashboard: renderDash, followup: renderFollowup, alljobs: renderAll, closed: renderClosed, lost: renderLost, referrals: renderRefs, insights: renderInsights };
+  if (map[id]) map[id]();
+}
+
+function showView(name, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  btn.classList.add('active');
+  const map = { dashboard: renderDash, followup: renderFollowup, alljobs: renderAll, closed: renderClosed, lost: renderLost, referrals: renderRefs, insights: renderInsights };
+  if (map[name]) map[name]();
+}
+
+function updateStats() {
+  const t = todayStr();
+  const follow = jobs.filter(j => !['closed','lost'].includes(j.status));
+  const hot = follow.filter(j => j.status === 'hot');
+  const closed = jobs.filter(j => j.status === 'closed');
+  document.getElementById('s-today').textContent = jobs.filter(j => j.visit_date === t).length;
+  document.getElementById('s-follow').textContent = follow.length;
+  document.getElementById('fu-badge').textContent = follow.length;
+  document.getElementById('s-closed').textContent = closed.length;
+  document.getElementById('closed-badge').textContent = closed.length;
+  const rev = closed.reduce((a, j) => a + (parseFloat(j.estimate) || 0), 0);
+  document.getElementById('s-rev').textContent = '$' + Math.round(rev).toLocaleString();
+  const rate = jobs.length ? Math.round(closed.length / jobs.length * 100) : 0;
+  document.getElementById('s-rate').textContent = rate + '%';
+  const rb = document.getElementById('rate-bar');
+  rb.style.width = rate + '%';
+  rb.style.background = rate >= 50 ? 'var(--green)' : rate >= 30 ? 'var(--amber)' : 'var(--red)';
+  const banner = document.getElementById('urgency-banner');
+  if (hot.length > 0) {
+    banner.className = 'urgency-banner hot-banner';
+    document.getElementById('urgency-title').textContent = hot.length + ' hot lead' + (hot.length > 1 ? 's' : '') + ' need a call RIGHT NOW!';
+    document.getElementById('urgency-sub').textContent = 'Every hour you wait, you risk losing the sale. Pick up the phone!';
+  } else if (follow.length > 0) {
+    banner.className = 'urgency-banner warm-banner';
+    document.getElementById('urgency-title').textContent = follow.length + ' leads waiting for your follow-up';
+    document.getElementById('urgency-sub').textContent = 'Consistent follow-up = 30% more closed sales. Don\'t leave money on the table.';
+  } else {
+    banner.className = 'urgency-banner hidden';
+  }
+  renderQueue();
+}
+
+function renderQueue() {
+  const list = jobs.filter(j => !['closed','lost'].includes(j.status))
+    .sort((a, b) => { const o = {hot:0,warm:1,new:2,cold:3}; return (o[a.status]||2)-(o[b.status]||2); });
+  const el = document.getElementById('queue-cards');
+  if (!list.length) { el.innerHTML = '<div class="empty" style="padding:16px 0;min-width:180px">No follow-ups — all caught up 🎉</div>'; return; }
+  el.innerHTML = list.map(j => {
+    const h = heatLevel(j);
+    const overdue = j.followup_date && j.followup_date < todayStr();
+    const ds = daysSince(j.visit_date);
+    return `<div class="queue-card ${h}" onclick="editJob('${j.id}')">
+      <div class="heat-bar ${h}"></div>
+      <div class="heat-badge ${h}">${h==='hot'?'🔥 Hot':h==='warm'?'🌡️ Warm':'🧊 Cold'}</div>
+      <div class="queue-name">${j.client_name||'Unnamed'}${overdue?'<span class="overdue-tag">OVERDUE</span>':''}</div>
+      <div class="queue-type">${j.job_type||'No type'}</div>
+      <div class="queue-est">${j.estimate?'$'+parseFloat(j.estimate).toLocaleString():'No estimate'}</div>
+      <div class="queue-days">${ds===0?'Today':ds===1?'Yesterday':ds+' days ago'}</div>
+      ${j.followup_date?`<div class="queue-days" style="color:${overdue?'var(--red)':'var(--muted)'}">📅 ${fmt(j.followup_date)}</div>`:''}
+      ${j.phone?`<button class="q-call-btn" onclick="event.stopPropagation();window.location.href='tel:${j.phone}'">📞 Call ${(j.client_name||'').split(' ')[0]||'now'}</button>`:''}
+      <button class="q-script-btn" onclick="event.stopPropagation();showScript('${j.id}')">💬 Get script</button>
+    </div>`;
+  }).join('');
+}
+
+function jobCardHTML(j) {
+  const h = heatLevel(j);
+  const [pc, pl] = pillInfo(j);
+  const overdue = j.followup_date && j.followup_date < todayStr() && !['closed','lost'].includes(j.status);
+  const cardClass = h==='hot'?'hot-card':h==='warm'?'warm-card':h==='closed'?'closed-card':'';
+  const qtags = (j.quick_tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+  return `<div class="job-card ${cardClass}" onclick="editJob('${j.id}')">
+    <div class="job-card-top">
+      <div>
+        <div class="job-name">${j.client_name||'Unnamed'}${overdue?'<span class="overdue-tag">OVERDUE</span>':''}</div>
+        <div class="job-addr">${j.address||'No address'}</div>
+      </div>
+      <span class="pill ${pc}">${pl}</span>
+    </div>
+    <div class="job-meta">
+      ${j.job_type?`<div class="meta">Type: <strong>${j.job_type}</strong></div>`:''}
+      ${j.estimate?`<div class="meta">Estimate: <strong>$${parseFloat(j.estimate).toLocaleString()}</strong></div>`:''}
+      ${j.visit_date?`<div class="meta">Visited: <strong>${fmt(j.visit_date)}</strong></div>`:''}
+      ${j.followup_date?`<div class="meta" style="color:${overdue?'var(--red)':'inherit'}">Follow up: <strong>${fmt(j.followup_date)}</strong></div>`:''}
+      ${j.phone?`<div class="meta"><a href="tel:${j.phone}" onclick="event.stopPropagation()" style="color:var(--green-d);font-weight:500;text-decoration:none">📞 ${j.phone}</a></div>`:''}
+    </div>
+    ${qtags?`<div class="tags-row">${qtags}</div>`:''}
+    ${j.client_said?`<div class="client-said">"${j.client_said.slice(0,120)}${j.client_said.length>120?'...':''}"</div>`:''}
+  </div>`;
+}
+
+function renderList(elId, list) {
+  document.getElementById(elId).innerHTML = list.length ? list.map(j => jobCardHTML(j)).join('') : '<div class="empty"><div class="icon">📋</div>Nothing here yet</div>';
+}
+
+function renderDash() {
+  const q = (document.getElementById('dash-search').value || '').toLowerCase();
+  renderList('dash-list', jobs.filter(j => !q || (j.client_name||'').toLowerCase().includes(q) || (j.address||'').toLowerCase().includes(q)).slice(0, 20));
+}
+function renderFollowup() {
+  const q = (document.getElementById('fu-search').value || '').toLowerCase();
+  const list = jobs.filter(j => !['closed','lost'].includes(j.status) && (!q || (j.client_name||'').toLowerCase().includes(q)))
+    .sort((a,b) => { const o={hot:0,warm:1,new:2,cold:3}; return (o[a.status]||2)-(o[b.status]||2); });
+  renderList('fu-list', list);
+}
+function renderAll() {
+  const q = (document.getElementById('all-search').value || '').toLowerCase();
+  renderList('all-list', jobs.filter(j => !q || (j.client_name||'').toLowerCase().includes(q) || (j.address||'').toLowerCase().includes(q) || (j.job_type||'').toLowerCase().includes(q)));
+}
+function renderClosed() { renderList('closed-list', jobs.filter(j => j.status === 'closed')); }
+function renderLost() { renderList('lost-list', jobs.filter(j => j.status === 'lost')); }
+
+function renderRefs() {
+  const el = document.getElementById('ref-list');
+  if (!refs.length) { el.innerHTML = '<div class="empty"><div class="icon">⭐</div>No referrals yet — add your best clients!</div>'; return; }
+  el.innerHTML = refs.map((r, i) => {
+    const initials = (r.client_name||'?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    return `<div class="ref-card">
+      <div class="ref-avatar">${initials}</div>
+      <div class="ref-info">
+        <div class="ref-name">${r.client_name||'Unknown'}</div>
+        <div class="ref-detail">${[r.job_type, r.address].filter(Boolean).join(' · ')}</div>
+        <div class="ref-stars">${'⭐'.repeat(parseInt(r.stars)||5)}</div>
+        ${r.note?`<div class="ref-note">"${r.note}"</div>`:''}
+      </div>
+      <div class="ref-actions">
+        ${r.phone?`<button class="ref-btn ref-call" onclick="window.location.href='tel:${r.phone}'">📞 Call</button>`:''}
+        <button class="ref-btn ref-copy" onclick="copyRef('${r.id}')">Copy info</button>
+        <button class="ref-btn ref-edit" onclick="editRef('${r.id}')">Edit</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function copyRef(id) {
+  const r = refs.find(x => x.id == id);
+  if (!r) return;
+  const text = `${r.client_name}${r.phone?' — '+r.phone:''}${r.job_type?' ('+r.job_type+')':''}${r.address?'\n'+r.address:''}${r.note?'\n"'+r.note+'"':''}`;
+  navigator.clipboard.writeText(text).then(() => toast('Referral info copied! 📋')).catch(() => toast('Copied!'));
+}
+
+function renderInsights() {
+  const closed = jobs.filter(j => j.status === 'closed');
+  const lost = jobs.filter(j => j.status === 'lost');
+  const pending = jobs.filter(j => !['closed','lost'].includes(j.status));
+  const totalVal = jobs.reduce((a,j) => a+(parseFloat(j.estimate)||0), 0);
+  const closedVal = closed.reduce((a,j) => a+(parseFloat(j.estimate)||0), 0);
+  const lostVal = lost.reduce((a,j) => a+(parseFloat(j.estimate)||0), 0);
+  const pendVal = pending.reduce((a,j) => a+(parseFloat(j.estimate)||0), 0);
+  document.getElementById('i-total').textContent = jobs.length;
+  document.getElementById('i-value').textContent = '$'+Math.round(totalVal).toLocaleString();
+  document.getElementById('i-avg').textContent = jobs.length?'$'+Math.round(totalVal/jobs.length).toLocaleString():'$0';
+  document.getElementById('i-closed-val').textContent = '$'+Math.round(closedVal).toLocaleString();
+  document.getElementById('i-lost-val').textContent = '$'+Math.round(lostVal).toLocaleString();
+  document.getElementById('i-pend-val').textContent = '$'+Math.round(pendVal).toLocaleString();
+  const reasons = {};
+  lost.forEach(j => { if(j.lost_reason) reasons[j.lost_reason]=(reasons[j.lost_reason]||0)+1; });
+  const lostEl = document.getElementById('lost-reasons');
+  const re = Object.entries(reasons).sort((a,b) => b[1]-a[1]);
+  lostEl.innerHTML = re.length ? re.map(([r,c]) => `<div class="insight-bar-wrap"><div class="insight-label">${r}</div><div class="insight-track"><div class="insight-fill" style="background:var(--red);width:${Math.round(c/lost.length*100)}%"></div></div><div class="insight-count">${c}</div></div>`).join('') : '<p style="font-size:12px;color:var(--muted)">No data yet.</p>';
+  const types = {};
+  jobs.forEach(j => { if(j.job_type) types[j.job_type]=(types[j.job_type]||0)+1; });
+  const typeEl = document.getElementById('jobs-by-type');
+  const te = Object.entries(types).sort((a,b) => b[1]-a[1]);
+  typeEl.innerHTML = te.length ? te.map(([t,c]) => `<div class="insight-bar-wrap"><div class="insight-label">${t}</div><div class="insight-track"><div class="insight-fill" style="background:var(--blue);width:${Math.round(c/jobs.length*100)}%"></div></div><div class="insight-count">${c}</div></div>`).join('') : '<p style="font-size:12px;color:var(--muted)">No data yet.</p>';
+}
+
+function showScript(id) {
+  const j = jobs.find(x => x.id == id);
+  if (!j) return;
+  const firstName = (j.client_name||'there').split(' ')[0];
+  const tags = (j.quick_tags||[]).join(' ').toLowerCase();
+  let script = '';
+  if (tags.includes('too expensive')||tags.includes('price'))
+    script = `Hi ${firstName}! This is [Your Name] from [Company]. I wanted to follow up — I know budget matters and I'd love to see if we can find a number that works for you. We also offer flexible payment options. Do you have 5 minutes to chat?`;
+  else if (tags.includes('other quotes')||tags.includes('comparing'))
+    script = `Hi ${firstName}! [Your Name] from [Company] here. Just following up on your estimate. I know you're comparing options — totally makes sense! I'm confident in our quality and pricing, and I'd love to earn your business. Any questions I can answer?`;
+  else if (tags.includes('voicemail')||tags.includes('no answer'))
+    script = `Hi ${firstName}, this is [Your Name] from [Company] — calling again about your estimate for your ${j.job_type||'project'}. We'd love to get started for you! Please call or text me back at [Phone]. Looking forward to it!`;
+  else if (tags.includes('spouse')||tags.includes('hoa'))
+    script = `Hi ${firstName}! [Your Name] from [Company]. Just checking in — did you get a chance to discuss the project? Happy to answer any questions they might have, or even jump on a quick call together if that helps!`;
+  else if (tags.includes('ready')||tags.includes('interested'))
+    script = `Hi ${firstName}! Great news — [Your Name] from [Company]. We have an opening in our schedule and would love to get your ${j.job_type||'project'} locked in. Ready to move forward? Let's make it happen!`;
+  else if (tags.includes('financing'))
+    script = `Hi ${firstName}! [Your Name] from [Company]. I wanted to follow up and let you know we offer financing options that might make this easier. Would love to chat — do you have a few minutes?`;
+  else
+    script = `Hi ${firstName}! This is [Your Name] from [Company]. I'm following up on the estimate we gave you${j.visit_date?' on '+fmt(j.visit_date):''}. We'd love to move forward on your ${j.job_type||'project'} — do you have any questions, or are you ready to get started?`;
+  document.getElementById('script-text').textContent = script;
+  document.getElementById('script-overlay').classList.add('open');
+}
+
+function copyScript() {
+  navigator.clipboard.writeText(document.getElementById('script-text').textContent).then(() => toast('Script copied! 📋')).catch(() => toast('Copied!'));
+}
+
+function openNewJob() {
+  editJobId = null; selectedQtVals = [];
+  document.getElementById('job-modal-title').textContent = 'New Job';
+  document.getElementById('del-btn').style.display = 'none';
+  ['f-name','f-phone','f-address','f-email','f-calltime','f-estimate','f-notes','f-scope','f-clientsaid','f-competitor','f-referral-src'].forEach(f => document.getElementById(f).value = '');
+  document.getElementById('f-type').value = '';
+  document.getElementById('f-status').value = 'new';
+  document.getElementById('f-date').value = todayStr();
+  document.getElementById('f-followdate').value = '';
+  document.getElementById('f-lost-reason').value = '';
+  document.getElementById('lost-reason-field').style.display = 'none';
+  document.querySelectorAll('.qt').forEach(q => q.classList.remove('selected'));
+  document.getElementById('img-prev').style.display = 'none';
+  document.getElementById('img-prev').src = '';
+  document.getElementById('img-ph').style.display = 'block';
+  document.getElementById('job-overlay').classList.add('open');
+}
+
+function editJob(id) {
+  const j = jobs.find(x => x.id == id);
+  if (!j) return;
+  editJobId = id;
+  selectedQtVals = [...(j.quick_tags || [])];
+  document.getElementById('job-modal-title').textContent = 'Edit Job';
+  document.getElementById('del-btn').style.display = 'block';
+  document.getElementById('f-name').value = j.client_name || '';
+  document.getElementById('f-phone').value = j.phone || '';
+  document.getElementById('f-address').value = j.address || '';
+  document.getElementById('f-email').value = j.email || '';
+  document.getElementById('f-calltime').value = j.best_call_time || '';
+  document.getElementById('f-type').value = j.job_type || '';
+  document.getElementById('f-status').value = j.status || 'new';
+  document.getElementById('f-date').value = j.visit_date || '';
+  document.getElementById('f-estimate').value = j.estimate || '';
+  document.getElementById('f-followdate').value = j.followup_date || '';
+  document.getElementById('f-clientsaid').value = j.client_said || '';
+  document.getElementById('f-scope').value = j.scope || '';
+  document.getElementById('f-notes').value = j.notes || '';
+  document.getElementById('f-competitor').value = j.competitor || '';
+  document.getElementById('f-referral-src').value = j.lead_source || '';
+  document.getElementById('f-lost-reason').value = j.lost_reason || '';
+  document.getElementById('lost-reason-field').style.display = j.status === 'lost' ? 'block' : 'none';
+  document.querySelectorAll('.qt').forEach(q => q.classList.toggle('selected', selectedQtVals.includes(q.dataset.val)));
+  if (j.img_url) {
+    document.getElementById('img-prev').src = j.img_url;
+    document.getElementById('img-prev').style.display = 'block';
+    document.getElementById('img-ph').style.display = 'none';
+  } else {
+    document.getElementById('img-prev').style.display = 'none';
+    document.getElementById('img-ph').style.display = 'block';
+  }
+  document.getElementById('job-overlay').classList.add('open');
+}
+
+document.getElementById('f-status').addEventListener('change', function() {
+  document.getElementById('lost-reason-field').style.display = this.value === 'lost' ? 'block' : 'none';
+});
+
+document.querySelectorAll('.qt').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const val = this.dataset.val;
+    const idx = selectedQtVals.indexOf(val);
+    if (idx >= 0) { selectedQtVals.splice(idx, 1); this.classList.remove('selected'); }
+    else { selectedQtVals.push(val); this.classList.add('selected'); }
+  });
+});
+
+async function saveJob() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { document.getElementById('f-name').style.borderColor = 'var(--red)'; document.getElementById('f-name').focus(); return; }
+  const btn = document.getElementById('save-job-btn');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+  const payload = {
+    client_name: name,
+    phone: document.getElementById('f-phone').value,
+    address: document.getElementById('f-address').value,
+    email: document.getElementById('f-email').value,
+    best_call_time: document.getElementById('f-calltime').value,
+    job_type: document.getElementById('f-type').value,
+    status: document.getElementById('f-status').value,
+    visit_date: document.getElementById('f-date').value || null,
+    estimate: document.getElementById('f-estimate').value ? parseFloat(document.getElementById('f-estimate').value) : null,
+    followup_date: document.getElementById('f-followdate').value || null,
+    client_said: document.getElementById('f-clientsaid').value,
+    scope: document.getElementById('f-scope').value,
+    notes: document.getElementById('f-notes').value,
+    competitor: document.getElementById('f-competitor').value,
+    lead_source: document.getElementById('f-referral-src').value,
+    lost_reason: document.getElementById('f-lost-reason').value,
+    quick_tags: [...selectedQtVals],
+    img_url: document.getElementById('img-prev').src && document.getElementById('img-prev').style.display !== 'none' ? document.getElementById('img-prev').src : null
+  };
+  let err;
+  if (editJobId) {
+    ({ error: err } = await sb.from('jobs').update(payload).eq('id', editJobId));
+  } else {
+    ({ error: err } = await sb.from('jobs').insert(payload));
+  }
+  btn.textContent = 'Save Job'; btn.disabled = false;
+  if (err) { toast('Error saving: ' + err.message); return; }
+  toast(editJobId ? 'Job updated! ✅' : 'Job saved! ✅');
+  closeJobModal();
+}
+
+async function deleteJob() {
+  if (!confirm('Delete this job? This cannot be undone.')) return;
+  const { error } = await sb.from('jobs').delete().eq('id', editJobId);
+  if (error) { toast('Error: ' + error.message); return; }
+  toast('Job deleted');
+  closeJobModal();
+}
+
+function closeJobModal() { document.getElementById('job-overlay').classList.remove('open'); }
+
+function openNewRef() {
+  editRefId = null;
+  document.getElementById('ref-modal-title').textContent = 'Add Referral';
+  document.getElementById('ref-del-btn').style.display = 'none';
+  ['r-name','r-phone','r-address','r-type','r-note'].forEach(f => document.getElementById(f).value = '');
+  document.getElementById('r-stars').value = '5';
+  document.getElementById('ref-overlay').classList.add('open');
+}
+
+function editRef(id) {
+  const r = refs.find(x => x.id == id);
+  if (!r) return;
+  editRefId = id;
+  document.getElementById('ref-modal-title').textContent = 'Edit Referral';
+  document.getElementById('ref-del-btn').style.display = 'block';
+  document.getElementById('r-name').value = r.client_name || '';
+  document.getElementById('r-phone').value = r.phone || '';
+  document.getElementById('r-address').value = r.address || '';
+  document.getElementById('r-type').value = r.job_type || '';
+  document.getElementById('r-note').value = r.note || '';
+  document.getElementById('r-stars').value = r.stars || '5';
+  document.getElementById('ref-overlay').classList.add('open');
+}
+
+async function saveRef() {
+  const name = document.getElementById('r-name').value.trim();
+  if (!name) { document.getElementById('r-name').focus(); return; }
+  const payload = {
+    client_name: name,
+    phone: document.getElementById('r-phone').value,
+    address: document.getElementById('r-address').value,
+    job_type: document.getElementById('r-type').value,
+    note: document.getElementById('r-note').value,
+    stars: parseInt(document.getElementById('r-stars').value)
+  };
+  let err;
+  if (editRefId) {
+    ({ error: err } = await sb.from('referrals').update(payload).eq('id', editRefId));
+  } else {
+    ({ error: err } = await sb.from('referrals').insert(payload));
+  }
+  if (err) { toast('Error: ' + err.message); return; }
+  toast('Referral saved! ⭐');
+  closeRefModal();
+}
+
+async function deleteRef() {
+  if (!confirm('Remove this referral?')) return;
+  await sb.from('referrals').delete().eq('id', editRefId);
+  toast('Removed');
+  closeRefModal();
+}
+
+function closeRefModal() { document.getElementById('ref-overlay').classList.remove('open'); }
+function handleBg(e, id) { if (e.target === document.getElementById(id)) document.getElementById(id).classList.remove('open'); }
+
+function handleImg(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    document.getElementById('img-prev').src = ev.target.result;
+    document.getElementById('img-prev').style.display = 'block';
+    document.getElementById('img-ph').style.display = 'none';
+  };
+  r.readAsDataURL(file);
+}
+
+document.getElementById('sidebar-date').textContent = new Date().toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+loadAll();
+</script>
+</body>
+</html>
